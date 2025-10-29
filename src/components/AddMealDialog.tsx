@@ -17,11 +17,23 @@ interface AddMealDialogProps {
 
 export const AddMealDialog = ({ open, onOpenChange, onMealAdded }: AddMealDialogProps) => {
   const { user } = useAuth();
+  const [mode, setMode] = useState<"choose" | "photo" | "manual">("choose");
   const [analyzing, setAnalyzing] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Manual entry states
+  const [manualData, setManualData] = useState({
+    food_name: "",
+    calories: "",
+    protein: "",
+    carbs: "",
+    fats: "",
+    meal_type: "lunch",
+    portion_size: "",
+  });
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -119,10 +131,52 @@ export const AddMealDialog = ({ open, onOpenChange, onMealAdded }: AddMealDialog
     }
   };
 
+  const saveManualMeal = async () => {
+    if (!user || !manualData.food_name || !manualData.calories) {
+      toast.error("Preenche pelo menos o nome e as calorias");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('meals')
+        .insert({
+          user_id: user.id,
+          food_name: manualData.food_name,
+          calories: parseInt(manualData.calories),
+          protein: parseFloat(manualData.protein) || 0,
+          carbs: parseFloat(manualData.carbs) || 0,
+          fats: parseFloat(manualData.fats) || 0,
+          meal_type: manualData.meal_type,
+          portion_size: manualData.portion_size || null,
+        });
+
+      if (error) throw error;
+
+      toast.success("Refeição guardada com sucesso!");
+      onMealAdded();
+      resetForm();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error("Save manual meal error:", error);
+      toast.error(error.message || "Erro ao guardar refeição");
+    }
+  };
+
   const resetForm = () => {
+    setMode("choose");
     setImageFile(null);
     setImagePreview("");
     setAnalysisResult(null);
+    setManualData({
+      food_name: "",
+      calories: "",
+      protein: "",
+      carbs: "",
+      fats: "",
+      meal_type: "lunch",
+      portion_size: "",
+    });
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -136,7 +190,133 @@ export const AddMealDialog = ({ open, onOpenChange, onMealAdded }: AddMealDialog
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {!imagePreview ? (
+          {mode === "choose" ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <button
+                onClick={() => setMode("photo")}
+                className="flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-all group"
+              >
+                <Camera className="h-12 w-12 text-muted-foreground group-hover:text-primary transition-colors" />
+                <div className="text-center">
+                  <p className="font-semibold mb-1">Análise com IA</p>
+                  <p className="text-sm text-muted-foreground">
+                    Tira foto e deixa a IA analisar
+                  </p>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => setMode("manual")}
+                className="flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed border-border rounded-lg hover:border-primary hover:bg-primary/5 transition-all group"
+              >
+                <Upload className="h-12 w-12 text-muted-foreground group-hover:text-primary transition-colors" />
+                <div className="text-center">
+                  <p className="font-semibold mb-1">Entrada Manual</p>
+                  <p className="text-sm text-muted-foreground">
+                    Insere os valores manualmente
+                  </p>
+                </div>
+              </button>
+            </div>
+          ) : mode === "manual" ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <Label>Nome do Prato *</Label>
+                  <Input 
+                    placeholder="Ex: Frango grelhado com arroz"
+                    value={manualData.food_name}
+                    onChange={(e) => setManualData({...manualData, food_name: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label>Tipo de Refeição</Label>
+                  <Select 
+                    value={manualData.meal_type}
+                    onValueChange={(value) => setManualData({...manualData, meal_type: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="breakfast">Pequeno-almoço</SelectItem>
+                      <SelectItem value="lunch">Almoço</SelectItem>
+                      <SelectItem value="dinner">Jantar</SelectItem>
+                      <SelectItem value="snack">Snack</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Porção</Label>
+                  <Input 
+                    placeholder="Ex: 350g"
+                    value={manualData.portion_size}
+                    onChange={(e) => setManualData({...manualData, portion_size: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-3">
+                <div>
+                  <Label>Calorias *</Label>
+                  <Input 
+                    type="number"
+                    placeholder="0"
+                    value={manualData.calories}
+                    onChange={(e) => setManualData({...manualData, calories: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label>Proteína (g)</Label>
+                  <Input 
+                    type="number"
+                    step="0.1"
+                    placeholder="0"
+                    value={manualData.protein}
+                    onChange={(e) => setManualData({...manualData, protein: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label>Carbs (g)</Label>
+                  <Input 
+                    type="number"
+                    step="0.1"
+                    placeholder="0"
+                    value={manualData.carbs}
+                    onChange={(e) => setManualData({...manualData, carbs: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label>Gordura (g)</Label>
+                  <Input 
+                    type="number"
+                    step="0.1"
+                    placeholder="0"
+                    value={manualData.fats}
+                    onChange={(e) => setManualData({...manualData, fats: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setMode("choose")}
+                >
+                  Voltar
+                </Button>
+                <Button
+                  variant="hero"
+                  className="flex-1"
+                  onClick={saveManualMeal}
+                  disabled={!manualData.food_name || !manualData.calories}
+                >
+                  Guardar Refeição
+                </Button>
+              </div>
+            </div>
+          ) : !imagePreview ? (
             <div className="space-y-4">
               <div className="flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed border-border rounded-lg">
                 <Camera className="h-12 w-12 text-muted-foreground" />
@@ -151,13 +331,21 @@ export const AddMealDialog = ({ open, onOpenChange, onMealAdded }: AddMealDialog
                   className="hidden"
                   id="meal-image"
                 />
-                <Button
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Selecionar Imagem
-                </Button>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setMode("choose")}
+                  >
+                    Voltar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Selecionar Imagem
+                  </Button>
+                </div>
               </div>
             </div>
           ) : (

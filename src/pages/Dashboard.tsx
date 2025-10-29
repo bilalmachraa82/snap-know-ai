@@ -2,12 +2,14 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Camera, TrendingUp, Flame, Beef, Wheat, Droplets, LogOut, Pencil, Trash2, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings } from "lucide-react";
+import { Camera, TrendingUp, Flame, Beef, Wheat, Droplets, LogOut, Pencil, Trash2, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, Download, Share2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { AddMealDialog } from "@/components/AddMealDialog";
 import { EditMealDialog } from "@/components/EditMealDialog";
 import { GoalsDialog } from "@/components/GoalsDialog";
+import { ExportDataDialog } from "@/components/ExportDataDialog";
+import { ShareProgressDialog } from "@/components/ShareProgressDialog";
 import { ProgressCharts } from "@/components/ProgressCharts";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -49,6 +51,8 @@ const Dashboard = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [goalsDialogOpen, setGoalsDialogOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -242,9 +246,12 @@ const Dashboard = () => {
         <div className="container flex h-16 items-center justify-between">
           <h1 className="text-xl font-bold">Cal AI Dashboard</h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-muted-foreground hidden sm:inline">
               Olá, {user.email?.split('@')[0]}
             </span>
+            <Button variant="ghost" size="icon" onClick={() => setExportDialogOpen(true)}>
+              <Download className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4 mr-2" />
               Sair
@@ -277,6 +284,9 @@ const Dashboard = () => {
                   </p>
                 </div>
                 <div className="flex gap-2">
+                  <Button variant="outline" size="icon" onClick={() => setShareDialogOpen(true)}>
+                    <Share2 className="h-5 w-5" />
+                  </Button>
                   <Button variant="outline" size="lg" onClick={() => setGoalsDialogOpen(true)}>
                     <Settings className="mr-2 h-5 w-5" />
                     Objetivos
@@ -579,6 +589,19 @@ const Dashboard = () => {
           fetchMeals();
         }}
         currentGoals={goals}
+      />
+
+      <ExportDataDialog 
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        meals={meals}
+      />
+
+      <ShareProgressDialog 
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        totals={calculateTotals()}
+        goals={goals}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
