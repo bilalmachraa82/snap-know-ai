@@ -2,18 +2,45 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sparkles, Mail, Lock, ArrowLeft } from "lucide-react";
+import { Sparkles, Mail, Lock, ArrowLeft, User } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [loading, setLoading] = useState(false);
+  
+  const { signIn, signUp, signInWithGoogle } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement auth with Supabase
-    console.log({ email, password, isLogin });
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        await signIn(email, password);
+      } else {
+        await signUp(email, password, fullName);
+      }
+    } catch (error) {
+      console.error("Auth error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error("Google auth error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -40,6 +67,24 @@ const Auth = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Nome Completo</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="fullName"
+                    type="text"
+                    placeholder="O teu nome"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="pl-10"
+                    required={!isLogin}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
@@ -86,8 +131,14 @@ const Auth = () => {
               </div>
             )}
 
-            <Button type="submit" variant="hero" className="w-full" size="lg">
-              {isLogin ? "Entrar" : "Criar Conta"}
+            <Button 
+              type="submit" 
+              variant="hero" 
+              className="w-full" 
+              size="lg"
+              disabled={loading}
+            >
+              {loading ? "A processar..." : (isLogin ? "Entrar" : "Criar Conta")}
             </Button>
 
             <div className="relative">
@@ -99,7 +150,14 @@ const Auth = () => {
               </div>
             </div>
 
-            <Button type="button" variant="outline" className="w-full" size="lg">
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full" 
+              size="lg"
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+            >
               <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
                 <path
                   fill="currentColor"
