@@ -2,11 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Camera, TrendingUp, Flame, Beef, Wheat, Droplets, LogOut, Pencil, Trash2, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Camera, TrendingUp, Flame, Beef, Wheat, Droplets, LogOut, Pencil, Trash2, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { AddMealDialog } from "@/components/AddMealDialog";
 import { EditMealDialog } from "@/components/EditMealDialog";
+import { GoalsDialog } from "@/components/GoalsDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -46,6 +47,7 @@ const Dashboard = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [goalsDialogOpen, setGoalsDialogOpen] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -273,10 +275,16 @@ const Dashboard = () => {
                     })}
                   </p>
                 </div>
-                <Button variant="hero" size="lg" onClick={() => setDialogOpen(true)}>
-                  <Camera className="mr-2 h-5 w-5" />
-                  Adicionar Refeição
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="lg" onClick={() => setGoalsDialogOpen(true)}>
+                    <Settings className="mr-2 h-5 w-5" />
+                    Objetivos
+                  </Button>
+                  <Button variant="hero" size="lg" onClick={() => setDialogOpen(true)}>
+                    <Camera className="mr-2 h-5 w-5" />
+                    Adicionar Refeição
+                  </Button>
+                </div>
               </div>
 
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -550,6 +558,16 @@ const Dashboard = () => {
         onOpenChange={setEditDialogOpen}
         onMealUpdated={fetchMeals}
         meal={selectedMeal}
+      />
+
+      <GoalsDialog
+        open={goalsDialogOpen}
+        onOpenChange={setGoalsDialogOpen}
+        onGoalsUpdated={() => {
+          fetchGoals();
+          fetchMeals();
+        }}
+        currentGoals={goals}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
