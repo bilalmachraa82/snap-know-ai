@@ -2,11 +2,14 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Camera, TrendingUp, Flame, Beef, Wheat, Droplets, LogOut } from "lucide-react";
+import { Camera, TrendingUp, Flame, Beef, Wheat, Droplets, LogOut, Pencil, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { AddMealDialog } from "@/components/AddMealDialog";
+import { EditMealDialog } from "@/components/EditMealDialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Navigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface Meal {
   id: string;
@@ -36,6 +39,9 @@ const Dashboard = () => {
     target_fats: 67,
   });
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
@@ -105,6 +111,37 @@ const Dashboard = () => {
       snack: 'Snack',
     };
     return labels[type] || type;
+  };
+
+  const handleEditMeal = (meal: Meal) => {
+    setSelectedMeal(meal);
+    setEditDialogOpen(true);
+  };
+
+  const handleDeleteClick = (meal: Meal) => {
+    setSelectedMeal(meal);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedMeal) return;
+
+    try {
+      const { error } = await supabase
+        .from('meals')
+        .delete()
+        .eq('id', selectedMeal.id);
+
+      if (error) throw error;
+
+      toast.success("Refeição eliminada com sucesso!");
+      fetchMeals();
+      setDeleteDialogOpen(false);
+      setSelectedMeal(null);
+    } catch (error: any) {
+      console.error("Delete meal error:", error);
+      toast.error(error.message || "Erro ao eliminar refeição");
+    }
   };
 
   if (loading || loadingData) {
@@ -227,14 +264,14 @@ const Dashboard = () => {
           ) : (
             <div className="grid gap-4">
               {meals.map((meal) => (
-                <Card key={meal.id} className="glass-card p-6 hover:shadow-lg transition-shadow">
+                <Card key={meal.id} className="glass-card p-6 hover:shadow-lg transition-shadow group">
                   <div className="flex items-start justify-between">
-                    <div className="space-y-2">
+                    <div className="space-y-2 flex-1">
                       <div className="flex items-center gap-3">
                         <div className="h-12 w-12 rounded-lg bg-gradient-primary flex items-center justify-center text-white font-semibold text-sm">
                           {formatTime(meal.created_at)}
                         </div>
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-semibold text-lg">
                             {getMealTypeLabel(meal.meal_type)}: {meal.food_name}
                           </h3>
@@ -244,9 +281,29 @@ const Dashboard = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary">{meal.calories}</p>
-                      <p className="text-xs text-muted-foreground">kcal</p>
+                    <div className="flex items-start gap-3">
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-primary">{meal.calories}</p>
+                        <p className="text-xs text-muted-foreground">kcal</p>
+                      </div>
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditMeal(meal)}
+                          className="h-8 w-8"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteClick(meal)}
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </Card>
@@ -261,6 +318,31 @@ const Dashboard = () => {
         onOpenChange={setDialogOpen}
         onMealAdded={fetchMeals}
       />
+
+      <EditMealDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onMealUpdated={fetchMeals}
+        meal={selectedMeal}
+      />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar Refeição?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tens a certeza que queres eliminar "{selectedMeal?.food_name}"? 
+              Esta ação não pode ser revertida.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
