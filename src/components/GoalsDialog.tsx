@@ -3,30 +3,26 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { useUpdateGoals, type UserGoals } from "@/hooks/useGoals";
 import { toast } from "sonner";
 import { Flame, Beef, Wheat, Droplets, Calculator } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { goalsSchema } from "@/lib/validations";
+import { z } from "zod";
 
 interface GoalsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onGoalsUpdated: () => void;
-  currentGoals: {
-    daily_calories: number;
-    target_protein: number;
-    target_carbs: number;
-    target_fats: number;
-  };
+  currentGoals: UserGoals;
+  userId: string | undefined;
 }
 
-export function GoalsDialog({ open, onOpenChange, onGoalsUpdated, currentGoals }: GoalsDialogProps) {
-  const { user } = useAuth();
-  const [saving, setSaving] = useState(false);
+export function GoalsDialog({ open, onOpenChange, currentGoals, userId }: GoalsDialogProps) {
+  const updateGoalsMutation = useUpdateGoals();
   const [goals, setGoals] = useState(currentGoals);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [showCalculator, setShowCalculator] = useState(false);
-  
+
   // Calculator states
   const [weight, setWeight] = useState<number>(70);
   const [activityLevel, setActivityLevel] = useState<'sedentary' | 'light' | 'moderate' | 'active' | 'very_active'>('moderate');
@@ -34,7 +30,33 @@ export function GoalsDialog({ open, onOpenChange, onGoalsUpdated, currentGoals }
 
   useEffect(() => {
     setGoals(currentGoals);
+    setValidationErrors({});
   }, [currentGoals]);
+
+  // Helper to update goals field with validation
+  const updateGoalsField = (field: string, value: number) => {
+    const updated = { ...goals, [field]: value };
+    setGoals(updated);
+
+    // Clear error for this field if it exists
+    if (validationErrors[field]) {
+      const newErrors = { ...validationErrors };
+      delete newErrors[field];
+      setValidationErrors(newErrors);
+    }
+
+    // Validate the specific field
+    try {
+      const fieldSchema = goalsSchema.shape[field as keyof typeof goalsSchema.shape];
+      if (fieldSchema) {
+        fieldSchema.parse(value);
+      }
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setValidationErrors({ ...validationErrors, [field]: err.errors[0].message });
+      }
+    }
+  };
 
   const calculateMacros = () => {
     // Activity multipliers
@@ -63,43 +85,71 @@ export function GoalsDialog({ open, onOpenChange, onGoalsUpdated, currentGoals }
     const carbs = Math.round((targetCalories * 0.40) / 4);
     const fats = Math.round((targetCalories * 0.30) / 9); // 9 cal per gram
 
-    setGoals({
+    const calculatedGoals = {
       daily_calories: targetCalories,
       target_protein: protein,
       target_carbs: carbs,
       target_fats: fats
-    });
+    };
 
-    toast.success("Objetivos calculados com base nos teus dados!");
-    setShowCalculator(false);
+    // Validate calculated goals
+    try {
+      goalsSchema.parse(calculatedGoals);
+      setGoals(calculatedGoals);
+      setValidationErrors({});
+      toast.success("Objetivos calculados com base nos teus dados!");
+      setShowCalculator(false);
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        const errors: Record<string, string> = {};
+        validationError.errors.forEach((err) => {
+          if (err.path[0]) {
+            errors[err.path[0].toString()] = err.message;
+          }
+        });
+        setValidationErrors(errors);
+        toast.error("Valores calculados estão fora dos limites recomendados. Por favor, ajusta os parâmetros.");
+      }
+    }
   };
 
-  const handleSave = async () => {
-    if (!user) return;
-
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from('user_goals')
-        .update({
-          daily_calories: goals.daily_calories,
-          target_protein: goals.target_protein,
-          target_carbs: goals.target_carbs,
-          target_fats: goals.target_fats,
-        })
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      toast.success("Objetivos atualizados com sucesso!");
-      onGoalsUpdated();
-      onOpenChange(false);
-    } catch (error: any) {
-      console.error("Error updating goals:", error);
-      toast.error(error.message || "Erro ao atualizar objetivos");
-    } finally {
-      setSaving(false);
+  const handleSave = () => {
+    if (!userId) {
+      toast.error("Utilizador não identificado");
+      return;
     }
+
+    // Validate before saving
+    try {
+      goalsSchema.parse(goals);
+      setValidationErrors({});
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        const errors: Record<string, string> = {};
+        validationError.errors.forEach((err) => {
+          if (err.path[0]) {
+            errors[err.path[0].toString()] = err.message;
+          }
+        });
+        setValidationErrors(errors);
+        toast.error("Por favor, corrige os erros antes de guardar");
+        return;
+      }
+    }
+
+    updateGoalsMutation.mutate({
+      userId,
+      goals: {
+        daily_calories: goals.daily_calories,
+        target_protein: goals.target_protein,
+        target_carbs: goals.target_carbs,
+        target_fats: goals.target_fats,
+      },
+    }, {
+      onSuccess: () => {
+        onOpenChange(false);
+      },
+    });
   };
 
   return (
@@ -200,10 +250,15 @@ export function GoalsDialog({ open, onOpenChange, onGoalsUpdated, currentGoals }
                   id="calories"
                   type="number"
                   value={goals.daily_calories}
-                  onChange={(e) => setGoals({ ...goals, daily_calories: Number(e.target.value) })}
+                  onChange={(e) => updateGoalsField('daily_calories', Number(e.target.value))}
                   min="1000"
-                  max="10000"
+                  max="5000"
+                  className={validationErrors.daily_calories ? 'border-destructive' : ''}
                 />
+                {validationErrors.daily_calories && (
+                  <p className="text-xs text-destructive mt-1">{validationErrors.daily_calories}</p>
+                )}
+                <p className="text-xs text-muted-foreground">Intervalo recomendado: 1,000 - 5,000 kcal</p>
               </div>
 
               <div className="space-y-2">
@@ -215,10 +270,15 @@ export function GoalsDialog({ open, onOpenChange, onGoalsUpdated, currentGoals }
                   id="protein"
                   type="number"
                   value={goals.target_protein}
-                  onChange={(e) => setGoals({ ...goals, target_protein: Number(e.target.value) })}
-                  min="0"
-                  max="1000"
+                  onChange={(e) => updateGoalsField('target_protein', Number(e.target.value))}
+                  min="50"
+                  max="400"
+                  className={validationErrors.target_protein ? 'border-destructive' : ''}
                 />
+                {validationErrors.target_protein && (
+                  <p className="text-xs text-destructive mt-1">{validationErrors.target_protein}</p>
+                )}
+                <p className="text-xs text-muted-foreground">Intervalo recomendado: 50 - 400g</p>
               </div>
 
               <div className="space-y-2">
@@ -230,10 +290,15 @@ export function GoalsDialog({ open, onOpenChange, onGoalsUpdated, currentGoals }
                   id="carbs"
                   type="number"
                   value={goals.target_carbs}
-                  onChange={(e) => setGoals({ ...goals, target_carbs: Number(e.target.value) })}
-                  min="0"
-                  max="1000"
+                  onChange={(e) => updateGoalsField('target_carbs', Number(e.target.value))}
+                  min="50"
+                  max="800"
+                  className={validationErrors.target_carbs ? 'border-destructive' : ''}
                 />
+                {validationErrors.target_carbs && (
+                  <p className="text-xs text-destructive mt-1">{validationErrors.target_carbs}</p>
+                )}
+                <p className="text-xs text-muted-foreground">Intervalo recomendado: 50 - 800g</p>
               </div>
 
               <div className="space-y-2">
@@ -245,10 +310,15 @@ export function GoalsDialog({ open, onOpenChange, onGoalsUpdated, currentGoals }
                   id="fats"
                   type="number"
                   value={goals.target_fats}
-                  onChange={(e) => setGoals({ ...goals, target_fats: Number(e.target.value) })}
-                  min="0"
-                  max="500"
+                  onChange={(e) => updateGoalsField('target_fats', Number(e.target.value))}
+                  min="20"
+                  max="300"
+                  className={validationErrors.target_fats ? 'border-destructive' : ''}
                 />
+                {validationErrors.target_fats && (
+                  <p className="text-xs text-destructive mt-1">{validationErrors.target_fats}</p>
+                )}
+                <p className="text-xs text-muted-foreground">Intervalo recomendado: 20 - 300g</p>
               </div>
             </div>
           </div>
@@ -256,11 +326,11 @@ export function GoalsDialog({ open, onOpenChange, onGoalsUpdated, currentGoals }
 
         {!showCalculator && (
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={updateGoalsMutation.isPending}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? "A guardar..." : "Guardar Objetivos"}
+            <Button onClick={handleSave} disabled={updateGoalsMutation.isPending}>
+              {updateGoalsMutation.isPending ? "A guardar..." : "Guardar Objetivos"}
             </Button>
           </DialogFooter>
         )}

@@ -1,126 +1,58 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Camera, TrendingUp, Flame, Beef, Wheat, Droplets, LogOut, Pencil, Trash2, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { useMeals, useDeleteMeal, type Meal } from "@/hooks/useMeals";
+import { useGoals, type UserGoals } from "@/hooks/useGoals";
 import { AddMealDialog } from "@/components/AddMealDialog";
 import { EditMealDialog } from "@/components/EditMealDialog";
 import { GoalsDialog } from "@/components/GoalsDialog";
 import { ProgressCharts } from "@/components/ProgressCharts";
+import { ProfileDialog } from "@/components/ProfileDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Navigate } from "react-router-dom";
-import { toast } from "sonner";
-import { format, startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
 import { pt } from "date-fns/locale";
-
-interface Meal {
-  id: string;
-  food_name: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fats: number;
-  meal_type: string;
-  created_at: string;
-}
-
-interface UserGoals {
-  daily_calories: number;
-  target_protein: number;
-  target_carbs: number;
-  target_fats: number;
-}
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
-  const [meals, setMeals] = useState<Meal[]>([]);
-  const [goals, setGoals] = useState<UserGoals>({
-    daily_calories: 2000,
-    target_protein: 150,
-    target_carbs: 250,
-    target_fats: 67,
-  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [goalsDialogOpen, setGoalsDialogOpen] = useState(false);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
-  const [loadingData, setLoadingData] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom'>('today');
   const [customDateStart, setCustomDateStart] = useState<Date | undefined>();
   const [customDateEnd, setCustomDateEnd] = useState<Date | undefined>();
   const [activeTab, setActiveTab] = useState<'today' | 'history'>('today');
 
-  useEffect(() => {
-    if (user) {
-      fetchMeals();
-      fetchGoals();
-    }
-  }, [user, selectedDate, dateRange, customDateStart, customDateEnd, activeTab]);
+  // React Query hooks for data fetching
+  const { data: meals = [], isLoading: mealsLoading } = useMeals({
+    activeTab,
+    selectedDate,
+    dateRange,
+    customDateStart,
+    customDateEnd,
+  });
 
-  const fetchMeals = async () => {
-    try {
-      let startDate: Date;
-      let endDate: Date;
+  const { data: goals, isLoading: goalsLoading } = useGoals(user?.id);
 
-      if (activeTab === 'today') {
-        startDate = startOfDay(new Date());
-        endDate = endOfDay(new Date());
-      } else {
-        // History tab
-        if (dateRange === 'today') {
-          startDate = startOfDay(selectedDate);
-          endDate = endOfDay(selectedDate);
-        } else if (dateRange === 'week') {
-          startDate = startOfWeek(selectedDate, { locale: pt });
-          endDate = endOfWeek(selectedDate, { locale: pt });
-        } else if (dateRange === 'month') {
-          startDate = startOfMonth(selectedDate);
-          endDate = endOfMonth(selectedDate);
-        } else if (dateRange === 'custom' && customDateStart && customDateEnd) {
-          startDate = startOfDay(customDateStart);
-          endDate = endOfDay(customDateEnd);
-        } else {
-          startDate = startOfDay(selectedDate);
-          endDate = endOfDay(selectedDate);
-        }
-      }
+  // React Query mutation for delete
+  const deleteMealMutation = useDeleteMeal();
 
-      const { data, error } = await supabase
-        .from('meals')
-        .select('*')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setMeals(data || []);
-    } catch (error) {
-      console.error('Error fetching meals:', error);
-    } finally {
-      setLoadingData(false);
-    }
-  };
-
-  const fetchGoals = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_goals')
-        .select('*')
-        .eq('user_id', user?.id)
-        .maybeSingle();
-
-      if (error) throw error;
-      if (data) setGoals(data);
-    } catch (error) {
-      console.error('Error fetching goals:', error);
-    }
+  // Use default goals if not loaded yet
+  const currentGoals: UserGoals = goals || {
+    daily_calories: 2000,
+    target_protein: 150,
+    target_carbs: 250,
+    target_fats: 67,
   };
 
   const calculateTotals = () => {
@@ -196,28 +128,18 @@ const Dashboard = () => {
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = () => {
     if (!selectedMeal) return;
 
-    try {
-      const { error } = await supabase
-        .from('meals')
-        .delete()
-        .eq('id', selectedMeal.id);
-
-      if (error) throw error;
-
-      toast.success("Refeição eliminada com sucesso!");
-      fetchMeals();
-      setDeleteDialogOpen(false);
-      setSelectedMeal(null);
-    } catch (error: any) {
-      console.error("Delete meal error:", error);
-      toast.error(error.message || "Erro ao eliminar refeição");
-    }
+    deleteMealMutation.mutate(selectedMeal.id, {
+      onSuccess: () => {
+        setDeleteDialogOpen(false);
+        setSelectedMeal(null);
+      },
+    });
   };
 
-  if (loading || loadingData) {
+  if (loading || mealsLoading || goalsLoading) {
     return (
       <div className="min-h-screen bg-gradient-hero flex items-center justify-center">
         <div className="text-center">
@@ -233,7 +155,7 @@ const Dashboard = () => {
   }
 
   const totals = calculateTotals();
-  const calorieProgress = (totals.calories / goals.daily_calories) * 100;
+  const calorieProgress = (totals.calories / currentGoals.daily_calories) * 100;
 
   return (
     <div className="min-h-screen bg-gradient-hero">
@@ -241,13 +163,17 @@ const Dashboard = () => {
       <header className="border-b bg-background/80 backdrop-blur-lg sticky top-0 z-50">
         <div className="container flex h-16 items-center justify-between">
           <h1 className="text-xl font-bold">Cal AI Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground hidden sm:inline">
               Olá, {user.email?.split('@')[0]}
             </span>
+            <Button variant="ghost" size="sm" onClick={() => setProfileDialogOpen(true)}>
+              <Settings className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Perfil</span>
+            </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
+              <LogOut className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Sair</span>
             </Button>
           </div>
         </div>
@@ -294,7 +220,7 @@ const Dashboard = () => {
                     <Flame className="h-6 w-6 text-white" />
                   </div>
                   <p className="text-3xl font-bold text-primary">{totals.calories}</p>
-                  <p className="text-sm text-muted-foreground">de {goals.daily_calories} kcal</p>
+                  <p className="text-sm text-muted-foreground">de {currentGoals.daily_calories} kcal</p>
                   <Progress value={calorieProgress} className="h-2" />
                 </div>
 
@@ -303,8 +229,8 @@ const Dashboard = () => {
                     <Beef className="h-6 w-6 text-primary" />
                   </div>
                   <p className="text-3xl font-bold">{totals.protein.toFixed(0)}g</p>
-                  <p className="text-sm text-muted-foreground">de {goals.target_protein}g Proteína</p>
-                  <Progress value={(totals.protein / goals.target_protein) * 100} className="h-2" />
+                  <p className="text-sm text-muted-foreground">de {currentGoals.target_protein}g Proteína</p>
+                  <Progress value={(totals.protein / currentGoals.target_protein) * 100} className="h-2" />
                 </div>
 
                 <div className="text-center space-y-2">
@@ -312,8 +238,8 @@ const Dashboard = () => {
                     <Wheat className="h-6 w-6 text-warning" />
                   </div>
                   <p className="text-3xl font-bold">{totals.carbs.toFixed(0)}g</p>
-                  <p className="text-sm text-muted-foreground">de {goals.target_carbs}g Carbs</p>
-                  <Progress value={(totals.carbs / goals.target_carbs) * 100} className="h-2" />
+                  <p className="text-sm text-muted-foreground">de {currentGoals.target_carbs}g Carbs</p>
+                  <Progress value={(totals.carbs / currentGoals.target_carbs) * 100} className="h-2" />
                 </div>
 
                 <div className="text-center space-y-2">
@@ -321,8 +247,8 @@ const Dashboard = () => {
                     <Droplets className="h-6 w-6 text-info" />
                   </div>
                   <p className="text-3xl font-bold">{totals.fats.toFixed(0)}g</p>
-                  <p className="text-sm text-muted-foreground">de {goals.target_fats}g Gordura</p>
-                  <Progress value={(totals.fats / goals.target_fats) * 100} className="h-2" />
+                  <p className="text-sm text-muted-foreground">de {currentGoals.target_fats}g Gordura</p>
+                  <Progress value={(totals.fats / currentGoals.target_fats) * 100} className="h-2" />
                 </div>
               </div>
             </Card>
@@ -396,7 +322,7 @@ const Dashboard = () => {
 
             {/* Progress Charts */}
             {meals.length > 0 && (
-              <ProgressCharts meals={meals} goals={goals} />
+              <ProgressCharts meals={meals} goals={currentGoals} />
             )}
           </TabsContent>
 
@@ -552,33 +478,28 @@ const Dashboard = () => {
 
             {/* Progress Charts */}
             {meals.length > 0 && (
-              <ProgressCharts meals={meals} goals={goals} />
+              <ProgressCharts meals={meals} goals={currentGoals} />
             )}
           </TabsContent>
         </Tabs>
       </div>
 
-      <AddMealDialog 
+      <AddMealDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onMealAdded={fetchMeals}
       />
 
       <EditMealDialog
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
-        onMealUpdated={fetchMeals}
         meal={selectedMeal}
       />
 
       <GoalsDialog
         open={goalsDialogOpen}
         onOpenChange={setGoalsDialogOpen}
-        onGoalsUpdated={() => {
-          fetchGoals();
-          fetchMeals();
-        }}
-        currentGoals={goals}
+        currentGoals={currentGoals}
+        userId={user?.id}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -586,7 +507,7 @@ const Dashboard = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar Refeição?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tens a certeza que queres eliminar "{selectedMeal?.food_name}"? 
+              Tens a certeza que queres eliminar "{selectedMeal?.food_name}"?
               Esta ação não pode ser revertida.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -598,6 +519,11 @@ const Dashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ProfileDialog
+        open={profileDialogOpen}
+        onOpenChange={setProfileDialogOpen}
+      />
     </div>
   );
 };
