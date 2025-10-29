@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Camera, Sparkles, LineChart, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { WaitlistForm } from "@/components/WaitlistForm";
 import heroImage from "@/assets/hero-food.jpg";
 import iconCamera from "@/assets/icon-camera.png";
 import iconAI from "@/assets/icon-ai.png";
@@ -215,8 +216,22 @@ const Landing = () => {
               Pronto para começar?
             </h2>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Junta-te a milhares de utilizadores que já transformaram o seu tracking nutricional com Cal AI.
+              Junta-te à waitlist e sê dos primeiros a experimentar o Cal AI!
             </p>
+
+            {/* Waitlist Form */}
+            <div className="max-w-xl mx-auto mb-8">
+              <WaitlistForm source="landing_cta" />
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-4 my-8 max-w-xl mx-auto">
+              <div className="flex-1 h-px bg-border"></div>
+              <span className="text-sm text-muted-foreground">ou</span>
+              <div className="flex-1 h-px bg-border"></div>
+            </div>
+
+            {/* Sign Up Button */}
             <Link to="/auth">
               <Button size="lg" variant="hero">
                 Começar Grátis <ArrowRight className="ml-2 h-5 w-5" />

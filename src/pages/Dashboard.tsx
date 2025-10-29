@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Camera, TrendingUp, Flame, Beef, Wheat, Droplets, LogOut, Pencil, Trash2, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings } from "lucide-react";
+import { Camera, TrendingUp, Flame, Beef, Wheat, Droplets, LogOut, Pencil, Trash2, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Settings, Download } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMeals, useDeleteMeal, type Meal } from "@/hooks/useMeals";
 import { useGoals, type UserGoals } from "@/hooks/useGoals";
@@ -11,13 +11,16 @@ import { EditMealDialog } from "@/components/EditMealDialog";
 import { GoalsDialog } from "@/components/GoalsDialog";
 import { ProgressCharts } from "@/components/ProgressCharts";
 import { ProfileDialog } from "@/components/ProfileDialog";
+import { MealTypeBreakdown } from "@/components/MealTypeBreakdown";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Navigate } from "react-router-dom";
-import { format, subDays, startOfWeek, endOfWeek } from "date-fns";
+import { format, subDays, startOfWeek, endOfWeek, startOfDay, endOfDay, startOfMonth, endOfMonth } from "date-fns";
 import { pt } from "date-fns/locale";
+import { toast } from "sonner";
+import { exportMealsToCSV, generateExportFilename } from "@/lib/exportData";
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
@@ -139,6 +142,44 @@ const Dashboard = () => {
     });
   };
 
+  const handleExportCSV = () => {
+    try {
+      if (meals.length === 0) {
+        toast.error("Não há dados para exportar");
+        return;
+      }
+
+      // Calculate date range for filename
+      let startDate: Date;
+      let endDate: Date;
+
+      if (dateRange === 'today') {
+        startDate = startOfDay(selectedDate);
+        endDate = endOfDay(selectedDate);
+      } else if (dateRange === 'week') {
+        startDate = startOfWeek(selectedDate, { locale: pt });
+        endDate = endOfWeek(selectedDate, { locale: pt });
+      } else if (dateRange === 'month') {
+        startDate = startOfMonth(selectedDate);
+        endDate = endOfMonth(selectedDate);
+      } else if (dateRange === 'custom' && customDateStart && customDateEnd) {
+        startDate = startOfDay(customDateStart);
+        endDate = endOfDay(customDateEnd);
+      } else {
+        startDate = startOfDay(selectedDate);
+        endDate = endOfDay(selectedDate);
+      }
+
+      // Generate filename and export
+      const filename = generateExportFilename(startDate, endDate);
+      exportMealsToCSV(meals, filename);
+
+      toast.success("Dados exportados com sucesso!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao exportar dados");
+    }
+  };
+
   if (loading || mealsLoading || goalsLoading) {
     return (
       <div className="min-h-screen bg-gradient-hero flex items-center justify-center">
@@ -252,6 +293,9 @@ const Dashboard = () => {
                 </div>
               </div>
             </Card>
+
+            {/* Meal Type Breakdown */}
+            {meals.length > 0 && <MealTypeBreakdown meals={meals} />}
 
             {/* Today's Meals */}
             <div>
@@ -393,6 +437,16 @@ const Dashboard = () => {
                     onClick={() => setDateRange('month')}
                   >
                     Mês
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportCSV}
+                    disabled={meals.length === 0}
+                    className="ml-2"
+                  >
+                    <Download className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Exportar CSV</span>
                   </Button>
                 </div>
               </div>
