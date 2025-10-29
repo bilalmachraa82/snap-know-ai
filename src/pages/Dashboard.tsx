@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Camera, TrendingUp, Flame, Beef, Wheat, Droplets, LogOut, Pencil, Trash2, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { Camera, TrendingUp, Flame, Beef, Wheat, Droplets, LogOut, Pencil, Trash2, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { AddMealDialog } from "@/components/AddMealDialog";
@@ -404,7 +404,7 @@ const Dashboard = () => {
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className="min-w-[200px]">
-                        <Calendar className="mr-2 h-4 w-4" />
+                        <CalendarIcon className="mr-2 h-4 w-4" />
                         {dateRange === 'today' && format(selectedDate, "dd 'de' MMMM, yyyy", { locale: pt })}
                         {dateRange === 'week' && `Semana de ${format(startOfWeek(selectedDate, { locale: pt }), "dd MMM", { locale: pt })}`}
                         {dateRange === 'month' && format(selectedDate, "MMMM yyyy", { locale: pt })}
@@ -461,7 +461,7 @@ const Dashboard = () => {
             {/* Historical Meals Grouped by Date */}
             {meals.length === 0 ? (
               <Card className="glass-card p-12 text-center">
-                <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <CalendarIcon className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
                 <h3 className="text-lg font-semibold mb-2">Sem refeições neste período</h3>
                 <p className="text-muted-foreground">
                   Não há refeições registadas para o período selecionado
