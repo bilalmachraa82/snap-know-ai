@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -6,12 +6,14 @@ import { Camera, TrendingUp, Flame, Beef, Wheat, Droplets, LogOut, Pencil, Trash
 import { useAuth } from "@/hooks/useAuth";
 import { useMeals, useDeleteMeal, type Meal } from "@/hooks/useMeals";
 import { useGoals, type UserGoals } from "@/hooks/useGoals";
-import { AddMealDialog } from "@/components/AddMealDialog";
-import { EditMealDialog } from "@/components/EditMealDialog";
-import { GoalsDialog } from "@/components/GoalsDialog";
-import { ProgressCharts } from "@/components/ProgressCharts";
-import { ProfileDialog } from "@/components/ProfileDialog";
 import { MealTypeBreakdown } from "@/components/MealTypeBreakdown";
+
+// Lazy load heavy and conditionally used components for better performance
+const AddMealDialog = lazy(() => import("@/components/AddMealDialog"));
+const EditMealDialog = lazy(() => import("@/components/EditMealDialog"));
+const GoalsDialog = lazy(() => import("@/components/GoalsDialog"));
+const ProgressCharts = lazy(() => import("@/components/ProgressCharts"));
+const ProfileDialog = lazy(() => import("@/components/ProfileDialog"));
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -21,6 +23,17 @@ import { format, subDays, startOfWeek, endOfWeek, startOfDay, endOfDay, startOfM
 import { pt } from "date-fns/locale";
 import { toast } from "sonner";
 import { exportMealsToCSV, generateExportFilename } from "@/lib/exportData";
+
+// Loading fallback for lazy-loaded dialogs and charts
+const DialogSkeleton = () => null; // Dialogs don't need visible loading state
+const ChartSkeleton = () => (
+  <Card className="glass-card p-8">
+    <div className="space-y-4 animate-pulse">
+      <div className="h-6 bg-muted rounded w-1/3" />
+      <div className="h-[300px] bg-muted rounded" />
+    </div>
+  </Card>
+);
 
 const Dashboard = () => {
   const { user, signOut, loading } = useAuth();
@@ -366,7 +379,9 @@ const Dashboard = () => {
 
             {/* Progress Charts */}
             {meals.length > 0 && (
-              <ProgressCharts meals={meals} goals={currentGoals} />
+              <Suspense fallback={<ChartSkeleton />}>
+                <ProgressCharts meals={meals} goals={currentGoals} />
+              </Suspense>
             )}
           </TabsContent>
 
@@ -532,29 +547,37 @@ const Dashboard = () => {
 
             {/* Progress Charts */}
             {meals.length > 0 && (
-              <ProgressCharts meals={meals} goals={currentGoals} />
+              <Suspense fallback={<ChartSkeleton />}>
+                <ProgressCharts meals={meals} goals={currentGoals} />
+              </Suspense>
             )}
           </TabsContent>
         </Tabs>
       </div>
 
-      <AddMealDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
+      <Suspense fallback={<DialogSkeleton />}>
+        <AddMealDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+        />
+      </Suspense>
 
-      <EditMealDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        meal={selectedMeal}
-      />
+      <Suspense fallback={<DialogSkeleton />}>
+        <EditMealDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          meal={selectedMeal}
+        />
+      </Suspense>
 
-      <GoalsDialog
-        open={goalsDialogOpen}
-        onOpenChange={setGoalsDialogOpen}
-        currentGoals={currentGoals}
-        userId={user?.id}
-      />
+      <Suspense fallback={<DialogSkeleton />}>
+        <GoalsDialog
+          open={goalsDialogOpen}
+          onOpenChange={setGoalsDialogOpen}
+          currentGoals={currentGoals}
+          userId={user?.id}
+        />
+      </Suspense>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -574,10 +597,12 @@ const Dashboard = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <ProfileDialog
-        open={profileDialogOpen}
-        onOpenChange={setProfileDialogOpen}
-      />
+      <Suspense fallback={<DialogSkeleton />}>
+        <ProfileDialog
+          open={profileDialogOpen}
+          onOpenChange={setProfileDialogOpen}
+        />
+      </Suspense>
     </div>
   );
 };

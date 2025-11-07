@@ -594,3 +594,5 @@ export const AddMealDialog = ({ open, onOpenChange }: AddMealDialogProps) => {
     </Dialog>
   );
 };
+
+export default AddMealDialog;

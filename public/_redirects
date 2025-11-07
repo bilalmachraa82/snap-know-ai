@@ -1,0 +1,13 @@
+# Netlify Redirects Configuration
+# This file handles SPA (Single Page Application) routing
+
+# SPA fallback - all routes should go to index.html for client-side routing
+# This allows React Router to handle routing on the client side
+/*    /index.html   200
+
+# Optional: Add specific redirects if needed
+# Example: Redirect old URLs to new ones
+# /old-path    /new-path    301
+
+# Example: Redirect /blog to external URL
+# /blog    https://blog.example.com    301

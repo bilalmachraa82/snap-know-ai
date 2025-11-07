@@ -126,16 +126,50 @@ For more security information, see [SECURITY.md](./SECURITY.md)
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/3526ac6c-c105-4eb9-a710-628eea2a726e) and click on Share -> Publish.
+### Quick Deploy Options
+
+1. **Lovable (Easiest)**
+   - Simply open [Lovable](https://lovable.dev/projects/3526ac6c-c105-4eb9-a710-628eea2a726e)
+   - Click Share -> Publish
+   - Done!
+
+2. **Netlify (Recommended for Production)**
+   - One-click deploy: [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start)
+   - Or see detailed guide below
+
+3. **Other Platforms**
+   - Vercel, Cloudflare Pages, AWS Amplify all supported
+
+### Production Deployment Guide
+
+For detailed deployment instructions including:
+- Netlify setup and configuration
+- Environment variable setup
+- Custom domain configuration
+- CI/CD pipeline setup
+- Supabase integration
+- Troubleshooting common issues
+
+See the comprehensive [DEPLOYMENT.md](./DEPLOYMENT.md) guide.
 
 ### Deployment Platforms
 
 The project is optimized for deployment on:
-- **Netlify** (includes `_headers` file for security headers)
+- **Netlify** (includes `netlify.toml` + `_headers` for security)
 - **Vercel** (includes `_headers` file for security headers)
 - **Lovable** (easiest option via Share -> Publish)
+- **Cloudflare Pages** (works out of the box)
 
 All static hosting providers should work. The `dist` folder contains the production build.
+
+### Required Environment Variables
+
+When deploying, you MUST set these environment variables:
+- `VITE_SUPABASE_PROJECT_ID`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `VITE_SUPABASE_URL`
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for how to obtain these values.
 
 ## Can I connect a custom domain to my Lovable project?
 

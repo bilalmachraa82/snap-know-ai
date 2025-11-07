@@ -338,3 +338,5 @@ export function GoalsDialog({ open, onOpenChange, currentGoals, userId }: GoalsD
     </Dialog>
   );
 }
+
+export default GoalsDialog;

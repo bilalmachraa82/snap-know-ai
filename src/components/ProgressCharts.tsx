@@ -151,3 +151,5 @@ export function ProgressCharts({ meals, goals }: ProgressChartsProps) {
     </div>
   );
 }
+
+export default ProgressCharts;

@@ -224,3 +224,5 @@ export const EditMealDialog = ({ open, onOpenChange, meal }: EditMealDialogProps
     </Dialog>
   );
 };
+
+export default EditMealDialog;

@@ -1,4 +1,5 @@
 import React, { Component, ReactNode } from "react";
+import * as Sentry from "@sentry/react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -42,13 +43,41 @@ class ErrorBoundary extends Component<Props, State> {
       errorInfo,
     });
 
-    // In production, you could send this to an error reporting service
-    // Example: logErrorToService(error, errorInfo);
+    // Send error to Sentry with component stack context
+    Sentry.captureException(error, {
+      contexts: {
+        react: {
+          componentStack: errorInfo.componentStack,
+        },
+      },
+    });
   }
 
   handleReload = () => {
     // Clear error state and reload the page
     window.location.reload();
+  };
+
+  handleReportFeedback = () => {
+    // Show Sentry's user feedback dialog
+    const eventId = Sentry.lastEventId();
+    if (eventId) {
+      Sentry.showReportDialog({
+        eventId,
+        lang: "pt",
+        title: "Parece que estamos com problemas.",
+        subtitle: "A nossa equipa foi notificada.",
+        subtitle2: "Se quiseres ajudar, conta-nos o que aconteceu.",
+        labelName: "Nome",
+        labelEmail: "Email",
+        labelComments: "O que aconteceu?",
+        labelClose: "Fechar",
+        labelSubmit: "Enviar",
+        errorGeneric: "Ocorreu um erro ao enviar o teu feedback. Por favor tenta novamente.",
+        errorFormEntry: "Alguns campos são inválidos. Por favor corrige os erros e tenta novamente.",
+        successMessage: "O teu feedback foi enviado. Obrigado!",
+      });
+    }
   };
 
   render() {
@@ -75,15 +104,25 @@ class ErrorBoundary extends Component<Props, State> {
                 </p>
               </div>
 
-              {/* Action Button */}
-              <Button
-                variant="hero"
-                size="lg"
-                onClick={this.handleReload}
-                className="mx-auto"
-              >
-                Recarregar página
-              </Button>
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button
+                  variant="hero"
+                  size="lg"
+                  onClick={this.handleReload}
+                >
+                  Recarregar página
+                </Button>
+                {!isDevelopment && (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={this.handleReportFeedback}
+                  >
+                    Reportar problema
+                  </Button>
+                )}
+              </div>
 
               {/* Error Details (Development Only) */}
               {isDevelopment && this.state.error && (
